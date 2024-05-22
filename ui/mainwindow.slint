@@ -1,0 +1,118 @@
+component BatteryLevel inherits Rectangle {
+    background: transparent;
+    height: self.width * 0.667;
+
+    in property <float> level: 100%;
+
+    left_receptacle := Rectangle {
+        background: gray;
+        x: parent.width * 10%;
+        y: 0px;
+        width: 20px;
+        height: 10px;
+        border-top-right-radius: 2px;
+        border-top-left-radius: 2px;
+    }
+
+    right_receptacle := Rectangle {
+        background: gray;
+        x: (parent.width * 90%) - self.width;
+        y: 0px;
+        width: 20px;
+        height: 10px;
+        border-top-right-radius: 2px;
+        border-top-left-radius: 2px;
+    }
+
+    Rectangle {
+        background: gray;
+        y: left_receptacle.height;
+        height: parent.height - left_receptacle.height;
+        border-radius: 2px;
+
+        Rectangle {
+            y: parent.height - self.height;
+            width: parent.width;
+            height: parent.height * root.level;
+            border-radius: parent.border-radius;
+
+            states [
+                good when root.level > 40%: {
+                    background: mediumaquamarine;
+                }
+                ok when root.level > 10%: {
+                    background: gold;
+                }
+                low when root.level < 10%: {
+                    background: firebrick;
+                }
+            ]
+        }
+
+        Text {
+            text: "\{round(root.level * 100)}%";
+        }
+    }
+}
+
+component WaterLevel inherits Rectangle {
+    background: gray;
+    border-radius: 2px;
+
+    in property <float> level: 100%;
+    in property <bool> good-when-full: true;
+
+    Rectangle {
+        y: parent.height - self.height;
+        width: parent.width;
+        height: parent.height * root.level;
+        border-radius: root.border-radius;
+
+        states [
+            full when root.level > 90%: {
+                background: good-when-full ? cornflowerblue : firebrick;
+            }
+            ok when root.level > 20%: {
+                background: gold;
+            }
+            empty when root.level < 20%: {
+                background: good-when-full ? firebrick : cornflowerblue;
+            }
+        ]
+    }
+
+    Text {
+        text: "\{round(root.level * 100)}%";
+    }
+}
+
+export component MainWindow inherits Window {
+    title: "Toadly Interface";
+    width: 800px;
+    height: 480px;
+
+
+    HorizontalLayout {
+        alignment: center;
+        padding: 15px;
+        spacing: 20px;
+
+        WaterLevel {
+            height: 120px;
+            width: 80px;
+            level: 98%;
+            good-when-full: false;
+        }
+
+        BatteryLevel {
+            width: 120px;
+            level: 30%;
+        }
+
+        WaterLevel {
+            height: 120px;
+            width: 80px;
+            level: 45%;
+        }
+   }
+}
