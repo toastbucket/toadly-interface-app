@@ -40,10 +40,10 @@ component BatteryLevel inherits Rectangle {
                 good when root.level > 40%: {
                     background: mediumaquamarine;
                 }
-                ok when root.level > 10%: {
+                ok when root.level > 20%: {
                     background: gold;
                 }
-                low when root.level < 10%: {
+                low when root.level < 20%: {
                     background: firebrick;
                 }
             ]
@@ -69,7 +69,7 @@ component WaterLevel inherits Rectangle {
         border-radius: root.border-radius;
 
         states [
-            full when root.level > 90%: {
+            full when root.level > 40%: {
                 background: good-when-full ? cornflowerblue : firebrick;
             }
             ok when root.level > 20%: {
@@ -91,6 +91,10 @@ export component MainWindow inherits Window {
     width: 800px;
     height: 480px;
 
+    in property <float> fresh_tank_level: 100%;
+    in property <float> grey_tank_level: 100%;
+    in property <float> house_batt_level: 100%;
+    in property <float> truck_batt_level: 100%;
 
     HorizontalLayout {
         alignment: center;
@@ -100,19 +104,19 @@ export component MainWindow inherits Window {
         WaterLevel {
             height: 120px;
             width: 80px;
-            level: 98%;
+            level: grey_tank_level;
             good-when-full: false;
         }
 
         BatteryLevel {
             width: 120px;
-            level: 30%;
+            level: house_batt_level;
         }
 
         WaterLevel {
             height: 120px;
             width: 80px;
-            level: 45%;
+            level: fresh_tank_level;
         }
    }
 }
