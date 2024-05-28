@@ -33,56 +33,73 @@ component BatteryLevel inherits Rectangle {
         Rectangle {
             y: parent.height - self.height;
             width: parent.width;
-            height: parent.height * root.level;
+            height: parent.height * level;
             border-radius: parent.border-radius;
 
             states [
-                good when root.level > 40%: {
+                good when level > 40%: {
                     background: mediumaquamarine;
                 }
-                ok when root.level > 20%: {
+                ok when level > 20%: {
                     background: gold;
                 }
-                low when root.level < 20%: {
+                low when level < 20%: {
                     background: firebrick;
                 }
             ]
         }
 
         Text {
-            text: "\{round(root.level * 100)}%";
+            text: "\{round(level * 100)}%";
+            font-size: 22px;
+            font-weight: 650;
         }
     }
 }
 
-component WaterLevel inherits Rectangle {
-    background: gray;
-    border-radius: 2px;
+component WaterLevel inherits VerticalLayout {
+    alignment: stretch;
+    spacing: 5px;
 
     in property <float> level: 100%;
     in property <bool> good-when-full: true;
-
-    Rectangle {
-        y: parent.height - self.height;
-        width: parent.width;
-        height: parent.height * root.level;
-        border-radius: root.border-radius;
-
-        states [
-            full when root.level > 40%: {
-                background: good-when-full ? cornflowerblue : firebrick;
-            }
-            ok when root.level > 20%: {
-                background: gold;
-            }
-            empty when root.level < 20%: {
-                background: good-when-full ? firebrick : cornflowerblue;
-            }
-        ]
-    }
+    in property <string> label: "Tank Level";
 
     Text {
-        text: "\{round(root.level * 100)}%";
+        text: label;
+        font-size: 18px;
+        horizontal-alignment: center;
+        max-height: self.font-size;
+    }
+
+    Rectangle {
+        background: gray;
+        border-radius: 4px;
+
+        Rectangle {
+            y: parent.height - self.height;
+            width: parent.width;
+            height: parent.height * level;
+            border-radius: parent.border-radius;
+
+            states [
+                full when level > 40%: {
+                    background: good-when-full ? cornflowerblue : firebrick;
+                }
+                ok when level > 20%: {
+                    background: gold;
+                }
+                empty when level < 20%: {
+                    background: good-when-full ? firebrick : cornflowerblue;
+                }
+            ]
+        }
+
+        Text {
+            text: "\{round(level * 100)}%";
+            font-size: 22px;
+            font-weight: 650;
+        }
     }
 }
 
@@ -97,26 +114,29 @@ export component MainWindow inherits Window {
     in property <float> truck_batt_level: 100%;
 
     HorizontalLayout {
-        alignment: center;
         padding: 15px;
-        spacing: 20px;
-
-        WaterLevel {
-            height: 120px;
-            width: 80px;
-            level: grey_tank_level;
-            good-when-full: false;
-        }
+        spacing: 10px;
 
         BatteryLevel {
-            width: 120px;
+            width: 180px;
             level: house_batt_level;
         }
 
+        Rectangle {}
+
         WaterLevel {
-            height: 120px;
-            width: 80px;
+            height: parent.height - (parent.padding * 2);
+            width: self.height * 0.4;
+            level: grey_tank_level;
+            good-when-full: false;
+            label: "Grey Water Level";
+        }
+
+        WaterLevel {
+            height: parent.height - (parent.padding * 2);
+            width: self.height * 0.4;
             level: fresh_tank_level;
+            label: "Fresh Water Level";
         }
    }
 }
