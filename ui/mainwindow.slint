@@ -3,13 +3,15 @@ component BatteryLevel inherits Rectangle {
     height: self.width * 0.667;
 
     in property <float> level: 100%;
+    in property <float> voltage: 13.5;
+    in property <bool> show-voltage: false;
 
     left_receptacle := Rectangle {
         background: gray;
         x: parent.width * 10%;
         y: 0px;
-        width: 20px;
-        height: 10px;
+        width: parent.width * 0.1;
+        height: self.width / 2;
         border-top-right-radius: 2px;
         border-top-left-radius: 2px;
     }
@@ -18,8 +20,8 @@ component BatteryLevel inherits Rectangle {
         background: gray;
         x: (parent.width * 90%) - self.width;
         y: 0px;
-        width: 20px;
-        height: 10px;
+        width: parent.width * 0.1;
+        height: self.width / 2;
         border-top-right-radius: 2px;
         border-top-left-radius: 2px;
     }
@@ -30,7 +32,7 @@ component BatteryLevel inherits Rectangle {
         height: parent.height - left_receptacle.height;
         border-radius: 2px;
 
-        Rectangle {
+        if !show-voltage : Rectangle {
             y: parent.height - self.height;
             width: parent.width;
             height: parent.height * level;
@@ -48,12 +50,12 @@ component BatteryLevel inherits Rectangle {
                 }
             ]
         }
+    }
 
-        Text {
-            text: "\{round(level * 100)}%";
-            font-size: 22px;
-            font-weight: 650;
-        }
+    Text {
+        text: show-voltage ? "\{round(voltage)}V" : "\{round(level * 100)}%";
+        font-size: 22px;
+        font-weight: 650;
     }
 }
 
@@ -111,15 +113,34 @@ export component MainWindow inherits Window {
     in property <float> fresh_tank_level: 100%;
     in property <float> grey_tank_level: 100%;
     in property <float> house_batt_level: 100%;
-    in property <float> truck_batt_level: 100%;
+    in property <float> truck_batt_voltage: 13.5;
 
     HorizontalLayout {
         padding: 15px;
         spacing: 10px;
 
-        BatteryLevel {
-            width: 180px;
-            level: house_batt_level;
+        GridLayout {
+            padding: 15px;
+            spacing: 10px;
+
+            Row {
+                Rectangle {}
+                BatteryLevel {
+                    width: 180px;
+                    level: house_batt_level;
+                }
+                Rectangle {}
+            }
+
+            Row {
+                Rectangle {}
+                BatteryLevel {
+                    width: 100px;
+                    voltage: truck_batt_voltage;
+                    show-voltage: true;
+                }
+                Rectangle {}
+            }
         }
 
         Rectangle {}
