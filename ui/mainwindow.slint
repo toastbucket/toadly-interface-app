@@ -53,8 +53,10 @@ component BatteryLevel inherits Rectangle {
     }
 
     Text {
-        text: show-voltage ? "\{round(voltage)}V" : "\{round(level * 100)}%";
-        font-size: 22px;
+        text: show-voltage ?
+            "\{floor(voltage)}.\{floor(mod(voltage, 1) * 10)}V"
+            : "\{round(level * 100)}%";
+        font-size: parent.width * 0.25;
         font-weight: 650;
     }
 }
