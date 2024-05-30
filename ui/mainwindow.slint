@@ -121,31 +121,39 @@ export component MainWindow inherits Window {
         padding: 15px;
         spacing: 10px;
 
-        GridLayout {
-            padding: 15px;
-            spacing: 10px;
-
-            Row {
-                Rectangle {}
-                BatteryLevel {
-                    width: 180px;
-                    level: house_batt_level;
-                }
-                Rectangle {}
+        Rectangle {
+            BatteryLevel {
+                x: (parent.width * 50%) - (self.width * 50%);
+                y: (parent.height * 30%) - (self.height * 50%);
+                width: 180px;
+                level: house_batt_level;
             }
 
-            Row {
-                Rectangle {}
-                BatteryLevel {
-                    width: 100px;
-                    voltage: truck_batt_voltage;
-                    show-voltage: true;
-                }
-                Rectangle {}
+            BatteryLevel {
+                x: (parent.width * 50%) - (self.width * 50%);
+                y: (parent.height * 70%) - (self.height * 50%);
+                //y: housebatt.y + ((parent.y - housebatt.y) / 2) - (self.height / 2);
+                width: 100px;
+                voltage: truck_batt_voltage;
+                show-voltage: true;
+            }
+
+            Rectangle {
+                x: (parent.width * 15%) - (self.width * 50%);
+                y: (parent.height * 70%) - (self.height * 50%);
+                height: 100px;
+                width: 100px;
+                background: gray;
+            }
+
+            Rectangle {
+                x: (parent.width * 85%) - (self.width * 50%);
+                y: (parent.height * 70%) - (self.height * 50%);
+                height: 100px;
+                width: 100px;
+                background: gray;
             }
         }
-
-        Rectangle {}
 
         WaterLevel {
             height: parent.height - (parent.padding * 2);
