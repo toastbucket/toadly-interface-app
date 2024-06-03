@@ -1,9 +1,153 @@
+component PieChartBackground inherits Path {
+    in property <float> thickness;
+    in property <float> inner-radius;
+
+    fill: #aaaaaa40;
+
+    viewbox-width: 100;
+    viewbox-height: 100;
+
+    MoveTo {
+        x: 50;
+        y: 0;
+    }
+    ArcTo {
+        radius-x: 50;
+        radius-y: 50;
+        x: 50;
+        y: 100;
+        sweep: true;
+    }
+    ArcTo {
+        radius-x: 50;
+        radius-y: 50;
+        x: 50;
+        y: 0;
+        sweep: true;
+    }
+    LineTo {
+        x: 50;
+        y: root.thickness;
+    }
+    ArcTo {
+        radius-x: root.inner-radius;
+        radius-y: root.inner-radius;
+        x: 50;
+        y: 100 - root.thickness;
+    }
+    ArcTo {
+        radius-x: root.inner-radius;
+        radius-y: root.inner-radius;
+        x: 50;
+        y: root.thickness;
+    }
+}
+
+component PieChartFill inherits Path {
+    in property <float> thickness;
+    in property <float> inner-radius;
+    in property <float> progress;
+    in property <float> start : 0;
+
+    viewbox-width: 100;
+    viewbox-height: 100;
+
+    MoveTo {
+        y: 50 - 50 * cos(-root.start * 360deg);
+        x: 50 - 50 * sin(-root.start * 360deg);
+    }
+
+    LineTo {
+        y: 50 - root.inner-radius * cos(-root.start * 360deg);
+        x: 50 - root.inner-radius * sin(-root.start * 360deg);
+    }
+
+    ArcTo {
+        radius-x: root.inner-radius;
+        radius-y: root.inner-radius;
+        y: 50 - root.inner-radius*cos(-(root.start + root.progress) * 360deg);
+        x: 50 - root.inner-radius*sin(-(root.start + root.progress) * 360deg);
+        sweep: root.progress > 0;
+        large-arc: root.progress > 0.5;
+    }
+
+    LineTo {
+        y: 50 - 50*cos(-(root.start + root.progress) * 360deg);
+        x: 50 - 50*sin(-(root.start + root.progress) * 360deg);
+    }
+
+    ArcTo {
+        radius-x: 50;
+        radius-y: 50;
+        y: 50 - 50 * cos(-root.start * 360deg);
+        x: 50 - 50 * sin(-root.start * 360deg);
+        sweep: root.progress < 0;
+        large-arc: root.progress > 0.5;
+    }
+
+    LineTo {
+        y: 50 - 50 * cos(-root.start * 360deg);
+        x: 50 - 50 * sin(-root.start * 360deg);
+    }
+}
+
+component PieChartPainted inherits Rectangle {
+    in property <brush> brush <=> p.fill;
+    in property <float> progress;
+    in property <float> thickness: 15;
+    in property <float> inner-radius: 50 - root.thickness;
+
+    back := PieChartBackground {
+        width: 100%;
+        height: 100%;
+        thickness: root.thickness;
+        inner-radius: root.inner-radius;
+    }
+
+    p := PieChartFill {
+        width: 100%;
+        height: 100%;
+        thickness: root.thickness;
+        inner-radius: root.inner-radius;
+        progress: root.progress;
+    }
+}
+
+component Gauge {
+    in property <brush> brush <=> chart.brush;
+    in property <float> value;
+    in property <float> max-value;
+    in property <string> unit;
+
+    chart := PieChartPainted {
+        progress: value > max-value ? 0.9999 : value / max-value;
+
+        Text {
+            width: 100%;
+            height: 100%;
+            vertical-alignment: center;
+            horizontal-alignment: center;
+            text: round(value) + unit;
+            font-weight: 650;
+        }
+    }
+
+    if value > max-value : PieChartFill {
+        width: 100%;
+        height: 100%;
+        thickness: chart.thickness;
+        inner-radius: chart.inner-radius;
+        progress: value - max-value < 1.0 ? mod(value, max-value) / max-value : 1.0;
+        fill: @linear-gradient(0deg, #ff5c00, #ff3122);
+    }
+}
+
 component BatteryLevel inherits Rectangle {
     background: transparent;
     height: self.width * 0.667;
 
-    in property <float> level: 100%;
-    in property <float> voltage: 13.5;
+    in property <float> level;
+    in property <float> voltage;
     in property <bool> show-voltage: false;
 
     left_receptacle := Rectangle {
@@ -55,7 +199,7 @@ component BatteryLevel inherits Rectangle {
     Text {
         text: show-voltage ?
             "\{floor(voltage)}.\{floor(mod(voltage, 1) * 10)}V"
-            : "\{round(level * 100)}%";
+            : "\{abs(round(level * 100))}%";
         font-size: parent.width * 0.25;
         font-weight: 650;
     }
@@ -65,7 +209,7 @@ component WaterLevel inherits VerticalLayout {
     alignment: stretch;
     spacing: 5px;
 
-    in property <float> level: 100%;
+    in property <float> level;
     in property <bool> good-when-full: true;
     in property <string> label: "Tank Level";
 
@@ -87,20 +231,20 @@ component WaterLevel inherits VerticalLayout {
             border-radius: parent.border-radius;
 
             states [
-                full when level > 40%: {
+                full when (level > 40% && good-when-full) || (level > 80% && !good-when-full): {
                     background: good-when-full ? cornflowerblue : firebrick;
                 }
-                ok when level > 20%: {
+                ok when (level > 20% && good-when-full) || (level > 40% && !good-when-full): {
                     background: gold;
                 }
-                empty when level < 20%: {
+                empty when (level < 20% && good-when-full) || (level < 40% && !good-when-full): {
                     background: good-when-full ? firebrick : cornflowerblue;
                 }
             ]
         }
 
         Text {
-            text: "\{round(level * 100)}%";
+            text: "\{abs(round(level * 100))}%";
             font-size: 22px;
             font-weight: 650;
         }
@@ -112,10 +256,13 @@ export component MainWindow inherits Window {
     width: 800px;
     height: 480px;
 
-    in property <float> fresh_tank_level: 100%;
-    in property <float> grey_tank_level: 100%;
-    in property <float> house_batt_level: 100%;
-    in property <float> truck_batt_voltage: 13.5;
+    in property <float> fresh_tank_level;
+    in property <float> grey_tank_level;
+    in property <float> house_batt_level;
+    in property <float> truck_batt_voltage;
+
+    in property <float> inverter_value;
+    in property <float> solar_value;
 
     HorizontalLayout {
         padding: 15px;
@@ -138,20 +285,44 @@ export component MainWindow inherits Window {
                 show-voltage: true;
             }
 
-            Rectangle {
+            Text {
+                x: (parent.width * 15%) - (self.width * 50%);
+                y: solargauge.y - self.height - 10px;
+
+                text: "Solar";
+                font-size: 18px;
+            }
+
+            solargauge := Gauge {
                 x: (parent.width * 15%) - (self.width * 50%);
                 y: (parent.height * 70%) - (self.height * 50%);
                 height: 100px;
                 width: 100px;
-                background: gray;
+
+                brush: @linear-gradient(0deg, #6776ff, #6100ff);
+                value: solar-value;
+                max-value: 200;
+                unit: "W";
             }
 
-            Rectangle {
+            Text {
+                x: (parent.width * 85%) - (self.width * 50%);
+                y: invertergauge.y - self.height - 10px;
+
+                text: "Inverter";
+                font-size: 18px;
+            }
+
+            invertergauge := Gauge {
                 x: (parent.width * 85%) - (self.width * 50%);
                 y: (parent.height * 70%) - (self.height * 50%);
                 height: 100px;
                 width: 100px;
-                background: gray;
+
+                brush: @linear-gradient(0deg, #6776ff, #6100ff);
+                value: inverter-value;
+                max-value: 800;
+                unit: "W";
             }
         }
 
