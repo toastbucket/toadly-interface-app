@@ -8,6 +8,7 @@ build = "build.rs"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+crossbeam = "0.8"
 rusb = "0.9"
 serialport = "4.4"
 slint = "1.5"
