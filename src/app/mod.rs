@@ -83,19 +83,24 @@ impl App {
 
                 // handle IO
                 for p in &mut ports {
-                    let mut buf = [0; 128];
-                    match p.port.read(&mut buf) {
-                        Ok(n) => {
-                            let to_push: Option<&[u8]> = if n > 0 { Some(&buf) } else { None };
-                            if let (Some(regs), Some(dev)) = (p.parser.push(to_push), p.parser.device()) {
-                                let _ = weak_window.upgrade_in_event_loop(move |mw| {
-                                    for r in regs {
-                                        dispatch_vedirect_message(&mw, r, dev);
+                    if let Ok(bytes) = p.port.bytes_to_read() {
+                        let mut buf = vec![0; bytes as usize];
+                        match p.port.read(&mut buf) {
+                            Ok(_) => {
+                                for b in buf {
+                                    if let Some(regs) = p.parser.push_one(b) {
+                                        if let Some(dev) = p.parser.device() {
+                                            let _ = weak_window.upgrade_in_event_loop(move |mw| {
+                                                for r in regs {
+                                                    dispatch_vedirect_message(&mw, r, dev);
+                                                }
+                                            });
+                                        }
                                     }
-                                });
-                            }
-                        },
-                        Err(_) => {},
+                                }
+                            },
+                            Err(_) => {},
+                        }
                     }
                 }
             }
@@ -118,7 +123,7 @@ impl App {
 
 fn dispatch_vedirect_message(mw: &MainWindow, reg: Register, dev: VeDirectDevice) {
     match dev {
-        VeDirectDevice::BMV71xSmartShunt => {
+        VeDirectDevice::SmartShunt => {
             match reg {
                 Register::AuxVoltage(v) => {
                     mw.set_truck_batt_voltage(v);
@@ -129,7 +134,7 @@ fn dispatch_vedirect_message(mw: &MainWindow, reg: Register, dev: VeDirectDevice
                 _ => (),
             }
         },
-        VeDirectDevice::MPPT => {
+        VeDirectDevice::SmartSolarMppt => {
             match reg {
                 Register::PanelPower(p) => {
                     mw.set_solar_value(p);
@@ -145,6 +150,7 @@ fn dispatch_vedirect_message(mw: &MainWindow, reg: Register, dev: VeDirectDevice
                 _ => (),
             }
         },
+        _ => {},
     }
 }
 

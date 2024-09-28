@@ -16,6 +16,7 @@ pub enum Register {
     ACOutputApparentPower(f32),
     TrackerOperationMode(),
     DcMonitorMode(),
+    Pid(u16),
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -78,6 +79,10 @@ impl std::str::FromStr for Register {
             },
             "MPPT" => Ok(Register::TrackerOperationMode()),
             "MON" => Ok(Register::DcMonitorMode()),
+            "PID" => {
+                let pid = u16::from_str_radix(&r[1][2..], 16).map_err(|_| ParseRegisterError)?;
+                Ok(Register::Pid(pid))
+            },
             _ => Err(ParseRegisterError)
         }
     }
@@ -85,29 +90,40 @@ impl std::str::FromStr for Register {
 
 #[derive(Debug, Copy, Clone)]
 pub enum VeDirectDevice {
-    BMV71xSmartShunt, // TODO: support BMVs independently
-    MPPT,
+    SmartShunt,
+    SmartSolarMppt,
     PhoenixInverter,
 }
 
+#[derive(Debug)]
 enum ParseState {
     Idle,
-    SohReceived,
-    HeaderReceived,
+    RecordingLabel,
+    RecordingValue,
+    Checksum
 }
 
+const MAX_LABEL: usize = 8;
+const MAX_VALUE: usize = 20;
+
 pub struct VeDirectParser {
-    buf: Vec<u8>,
     device: Option<VeDirectDevice>,
     state: ParseState,
+    regs: Vec<Register>,
+    flabel: Vec<u8>,
+    fvalue: Vec<u8>,
+    checksum: u8,
 }
 
 impl VeDirectParser {
     pub fn new() -> Self {
         VeDirectParser {
-            buf: Vec::new(),
             device: None,
             state: ParseState::Idle,
+            regs: Vec::new(),
+            flabel: Vec::new(),
+            fvalue: Vec::new(),
+            checksum: 0,
         }
     }
 
@@ -115,79 +131,86 @@ impl VeDirectParser {
         self.device
     }
 
-    pub fn push(&mut self, buf: Option<&[u8]>) -> Option<Vec<Register>> {
-        let mut regs: Vec<Register> = Vec::new();
+    pub fn push_one(&mut self, b: u8) -> Option<Vec<Register>> {
+        let mut result: Option<Vec<Register>> = None;
 
-        if buf.is_none() {
-            if matches!(self.state, ParseState::HeaderReceived) {
-                if let Ok(s) = std::str::from_utf8(&self.buf) {
-                    if let Ok(r) = Register::from_str(s) {
-                        regs.push(r.clone());
-                        self.predict_device(&r);
-                    }
+        self.push_into_checksum(b);
+        match self.state {
+            ParseState::Idle => {
+                if b == 0x0a {
+                    self.state = ParseState::RecordingLabel;
+                } else if b == 0x0d {
+                    // valid, but nothing to do, skip
+                } else {
+                    // invalid value, broken message
+                    self.reset();
                 }
-            }
+            },
+            ParseState::RecordingLabel => {
+                if b == 0x09 {
+                    self.state = ParseState::RecordingValue;
 
-            self.reset();
-        }
-
-        for b in buf.unwrap() {
-            match self.state {
-                ParseState::Idle => {
-                    if *b == 0x0d {
-                        self.state = ParseState::SohReceived;
-                        continue;
-                    }
-                },
-                ParseState::SohReceived => {
-                    if *b == 0x0a {
-                        self.state = ParseState::HeaderReceived;
-                        continue;
-                    } else {
-                        self.state = ParseState::Idle;
-                    }
-                },
-                ParseState::HeaderReceived => {
-                    if *b == 0x0d {
-                        // we've received a new SOH, lets parse and reset
-                        if let Ok(s) = std::str::from_utf8(&self.buf) {
-                            if let Ok(r) = Register::from_str(s) {
-                                regs.push(r.clone());
-                                self.predict_device(&r);
-                            }
+                    if let Ok(s) = std::str::from_utf8(&self.flabel) {
+                        if "Checksum" == s {
+                            self.state = ParseState::Checksum;
                         }
-                        self.reset();
-                    } else {
-                        self.buf.push(*b);
                     }
-                },
-            }
+                } else if self.flabel.len() > MAX_LABEL {
+                    self.reset();
+                } else {
+                    self.flabel.push(b);
+                }
+            },
+            ParseState::RecordingValue => {
+                if b == 0x0d {
+                    let rstring = format!("{}\t{}",
+                                        std::str::from_utf8(&self.flabel).unwrap(),
+                                        std::str::from_utf8(&self.fvalue).unwrap());
+                    if let Ok(reg) = Register::from_str(rstring.as_ref()) {
+                        if let Register::Pid(pid) = reg {
+                            self.set_device(pid);
+                        }
+                        self.regs.push(reg);
+                    }
+
+                    self.flabel.clear();
+                    self.fvalue.clear();
+                    self.state = ParseState::Idle;
+                } else if self.fvalue.len() > MAX_VALUE {
+                    self.reset();
+                } else {
+                    self.fvalue.push(b);
+                }
+            },
+            ParseState::Checksum => {
+                if self.checksum == 0 {
+                    result = Some(self.regs.clone());
+                }
+                self.reset();
+            },
         }
 
-        if regs.len() > 0 {
-            Some(regs)
-        } else {
-            None
-        }
+        result
     }
 
-    fn predict_device(&mut self, r: &Register) {
-        match r {
-            Register::ACOutputVoltage(_) => {
-                self.device = Some(VeDirectDevice::PhoenixInverter);
-            },
-            Register::StateOfCharge(_) => {
-                self.device = Some(VeDirectDevice::BMV71xSmartShunt);
-            },
-            Register::TrackerOperationMode() => {
-                self.device = Some(VeDirectDevice::MPPT);
-            },
-            _ => (),
+    fn push_into_checksum(&mut self, byte: u8) {
+        self.checksum = self.checksum.wrapping_add(byte);
+    }
+
+    fn set_device(&mut self, pid: u16) {
+        self.device = match pid {
+            0xa056 => Some(VeDirectDevice::SmartSolarMppt),
+            0xa389..=0xa38b => Some(VeDirectDevice::SmartShunt),
+            0xa269 => Some(VeDirectDevice::PhoenixInverter),
+            _ => None,
         }
     }
 
     fn reset(&mut self) {
         self.state = ParseState::Idle;
-        self.buf.clear();
+        self.regs.clear();
+        self.flabel.clear();
+        self.fvalue.clear();
+        self.checksum = 0;
     }
 }
