@@ -1,5 +1,6 @@
 use rusb::UsbContext;
 use serialport::SerialPort;
+use slint::{Timer, TimerMode};
 use std::path::Path;
 
 use crate::usb::{UsbEvent, UsbHotPlugHandler};
@@ -12,6 +13,7 @@ struct VeDirectPort {
     portnum: u8,
     parser: VeDirectParser,
     port: Box<dyn SerialPort>,
+    timer: Timer,
 }
 
 pub struct App {
@@ -50,6 +52,19 @@ impl App {
         let handler = UsbHotPlugHandler::new();
         let rx = handler.receiver();
         let weak_window = self.window.as_weak();
+        let weak_window_copy = self.window.as_weak();
+
+        let _ = weak_window.upgrade_in_event_loop(move |mw| {
+            mw.set_inverter_power(798.9);
+            mw.set_inverter_current(-126.238);
+            mw.set_inverter_online(true);
+        });
+
+        let _ = Timer::single_shot(std::time::Duration::from_millis(2000), move || {
+            weak_window_copy.upgrade_in_event_loop(move |mw| {
+                mw.set_inverter_online(false);
+            });
+        });
 
         std::thread::spawn(move || {
             let mut ports: Vec<VeDirectPort> = Vec::new();
@@ -90,6 +105,17 @@ impl App {
                                 for b in buf {
                                     if let Some(regs) = p.parser.push_one(b) {
                                         if let Some(dev) = p.parser.device() {
+
+                                            p.timer.start(
+                                                TimerMode::Repeated,
+                                                std::time::Duration::from_secs(5),
+                                                move || {
+                                                    let _ = weak_window.upgrade_in_event_loop(move |mw| {
+                                                        handle_vedirect_timeout(&mw, dev);
+                                                    });
+                                                });
+
+
                                             let _ = weak_window.upgrade_in_event_loop(move |mw| {
                                                 for r in regs {
                                                     dispatch_vedirect_message(&mw, r, dev);
@@ -121,9 +147,19 @@ impl App {
     }
 }
 
+fn handle_vedirect_timeout(mw: &MainWindow, dev: VeDirectDevice) {
+    match dev {
+        VeDirectDevice::SmartShunt => mw.set_shunt_online(false),
+        VeDirectDevice::SmartSolarMppt => mw.set_solar_online(false),
+        VeDirectDevice::PhoenixInverter => mw.set_inverter_online(false),
+    }
+}
+
 fn dispatch_vedirect_message(mw: &MainWindow, reg: Register, dev: VeDirectDevice) {
     match dev {
         VeDirectDevice::SmartShunt => {
+            mw.set_shunt_online(true);
+
             match reg {
                 Register::AuxVoltage(v) => {
                     mw.set_truck_batt_voltage(v);
@@ -135,17 +171,21 @@ fn dispatch_vedirect_message(mw: &MainWindow, reg: Register, dev: VeDirectDevice
             }
         },
         VeDirectDevice::SmartSolarMppt => {
+            mw.set_solar_online(true);
+
             match reg {
                 Register::PanelPower(p) => {
-                    mw.set_solar_value(p);
+                    mw.set_solar_power(p);
                 }
                 _ => (),
             }
         },
         VeDirectDevice::PhoenixInverter => {
+            mw.set_inverter_online(true);
+
             match reg {
                 Register::ACOutputApparentPower(p) => {
-                    mw.set_inverter_value(p);
+                    mw.set_inverter_power(p);
                 },
                 _ => (),
             }
@@ -165,6 +205,7 @@ fn try_open_port(busnum: u8, portnum: u8, config: u8) -> Option<VeDirectPort> {
                             portnum: portnum,
                             parser: VeDirectParser::new(),
                             port: port,
+                            timer: Timer::default(),
                         });
             }
         }

@@ -115,31 +115,57 @@ component PieChartPainted inherits Rectangle {
 
 component Gauge {
     in property <brush> brush <=> chart.brush;
-    in property <float> value;
+    in property <float> primary-value;
+    in property <string> primary-unit;
     in property <float> max-value;
-    in property <string> unit;
+    in property <float> secondary-value;
+    in property <string> secondary-unit;
+
+    in property <bool> online;
+
+    online_status := Rectangle {
+        x: parent.width * 90%;
+        y: 0;
+        height: 10px;
+        width: 10px;
+        border-radius: 10px;
+        background: online ? green : red;
+    }
 
     chart := PieChartPainted {
-        progress: value > max-value ? 0.9999 : value / max-value;
+        progress: primary-value >= max-value ? 0.9999 : primary-value / max-value;
 
         Text {
             width: 100%;
             height: 100%;
-            vertical-alignment: center;
+            y: parent.height * 30%;
             horizontal-alignment: center;
-            text: round(value) + unit;
+            text: round(primary-value) + primary-unit;
+            font-weight: 650;
+        }
+
+        Text {
+            width: 100%;
+            height: 100%;
+            y: parent.height * 50%;
+            horizontal-alignment: center;
+            text: secondary-value >= 0 ?
+                "\{floor(secondary-value)}.\{floor(abs(mod(secondary-value, 1) * 10))}" + secondary-unit
+                : "\{-1 * floor(abs(secondary-value))}.\{floor(mod(abs(secondary-value), 1) * 10)}" + secondary-unit;
             font-weight: 650;
         }
     }
 
-    if value > max-value : PieChartFill {
+/*
+    if primary-value >= max-value : PieChartFill {
         width: 100%;
         height: 100%;
         thickness: chart.thickness;
         inner-radius: chart.inner-radius;
-        progress: value - max-value < 1.0 ? mod(value, max-value) / max-value : 1.0;
+        progress: 100;
         fill: @linear-gradient(0deg, #ff5c00, #ff3122);
     }
+    */
 }
 
 component BatteryLevel inherits Rectangle {
@@ -149,6 +175,17 @@ component BatteryLevel inherits Rectangle {
     in property <float> level;
     in property <float> voltage;
     in property <bool> show-voltage: false;
+    in property <bool> online;
+    in property <bool> show-online: true;
+
+    if show-online : Rectangle {
+        x: parent.width;
+        y: 0;
+        height: parent.height * 7%;
+        width: self.height;
+        border-radius: 10px;
+        background: online ? green : red;
+    }
 
     left_receptacle := Rectangle {
         background: gray;
@@ -198,7 +235,7 @@ component BatteryLevel inherits Rectangle {
 
     Text {
         text: show-voltage ?
-            "\{floor(voltage)}.\{floor(mod(voltage, 1) * 10)}V"
+            "\{floor(voltage)}.\{abs(floor(mod(voltage, 1) * 10))}V"
             : "\{abs(round(level * 100))}%";
         font-size: parent.width * 0.25;
         font-weight: 650;
@@ -260,9 +297,15 @@ export component MainWindow inherits Window {
     in property <float> grey_tank_level;
     in property <float> house_batt_level;
     in property <float> truck_batt_voltage;
+    in property <bool> shunt_online;
 
-    in property <float> inverter_value;
-    in property <float> solar_value;
+    in property <float> inverter_power;
+    in property <float> inverter_current;
+    in property <bool> inverter_online;
+
+    in property <float> solar_power;
+    in property <float> solar_current;
+    in property <bool> solar_online;
 
     HorizontalLayout {
         padding: 15px;
@@ -283,6 +326,7 @@ export component MainWindow inherits Window {
                 width: 100px;
                 voltage: truck_batt_voltage;
                 show-voltage: true;
+                show-online: false;
             }
 
             Text {
@@ -300,9 +344,14 @@ export component MainWindow inherits Window {
                 width: 100px;
 
                 brush: @linear-gradient(0deg, #6776ff, #6100ff);
-                value: solar-value;
+                primary-value: solar_power;
                 max-value: 200;
-                unit: "W";
+                primary-unit: "W";
+
+                secondary-value: solar_current;
+                secondary-unit: "A";
+
+                online: solar_online;
             }
 
             Text {
@@ -320,9 +369,14 @@ export component MainWindow inherits Window {
                 width: 100px;
 
                 brush: @linear-gradient(0deg, #6776ff, #6100ff);
-                value: inverter-value;
+                primary-value: inverter_power;
                 max-value: 800;
-                unit: "W";
+                primary-unit: "W";
+
+                secondary-value: inverter_current;
+                secondary-unit: "A";
+
+                online: inverter_online;
             }
         }
 
