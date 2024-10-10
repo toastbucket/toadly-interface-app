@@ -201,7 +201,7 @@ impl VeDirectParser {
         self.device = match pid {
             0xa056 => Some(VeDirectDevice::SmartSolarMppt),
             0xa389..=0xa38b => Some(VeDirectDevice::SmartShunt),
-            0xa269 => Some(VeDirectDevice::PhoenixInverter),
+            0xa2e9 => Some(VeDirectDevice::PhoenixInverter),
             _ => None,
         }
     }
