@@ -173,8 +173,13 @@ component BatteryLevel inherits Rectangle {
     height: self.width * 0.667;
 
     in property <float> level;
+
     in property <float> voltage;
     in property <bool> show-voltage: false;
+
+    in property <float> current;
+    in property <bool> show-current: false;
+
     in property <bool> online;
     in property <bool> show-online: true;
 
@@ -233,12 +238,27 @@ component BatteryLevel inherits Rectangle {
         }
     }
 
-    Text {
-        text: show-voltage ?
-            "\{floor(voltage)}.\{abs(floor(mod(voltage, 1) * 10))}V"
-            : "\{abs(round(level * 100))}%";
-        font-size: parent.width * 0.25;
-        font-weight: 650;
+    VerticalLayout {
+        Rectangle {}
+        Text {
+            horizontal-alignment: center;
+            text: show-voltage ?
+                "\{floor(voltage)}.\{abs(floor(mod(voltage, 1) * 10))}V"
+                : "\{abs(round(level * 100))}%";
+            font-size: parent.width * 0.25;
+            font-weight: 650;
+        }
+
+        Rectangle {
+            if show-current : Text {
+                horizontal-alignment: center;
+                text: current >= 0 ?
+                    "\{floor(current)}.\{floor(abs(mod(current, 1) * 10))}A"
+                    : "\{-1 * floor(abs(current))}.\{floor(mod(abs(current), 1) * 10)}A";
+                font-size: parent.width * 0.1;
+                font-weight: 550;
+            }
+        }
     }
 }
 
@@ -296,6 +316,7 @@ export component MainWindow inherits Window {
     in property <float> fresh_tank_level;
     in property <float> grey_tank_level;
     in property <float> house_batt_level;
+    in property <float> house_batt_current;
     in property <float> truck_batt_voltage;
     in property <bool> shunt_online;
 
@@ -317,6 +338,8 @@ export component MainWindow inherits Window {
                 y: (parent.height * 30%) - (self.height * 50%);
                 width: 180px;
                 level: house_batt_level;
+                current: house_batt_current;
+                show-current: true;
             }
 
             BatteryLevel {

@@ -149,12 +149,9 @@ fn dispatch_vedirect_message(mw: &MainWindow, reg: Register, dev: VeDirectDevice
             mw.set_shunt_online(true);
 
             match reg {
-                Register::AuxVoltage(v) => {
-                    mw.set_truck_batt_voltage(v);
-                },
-                Register::StateOfCharge(soc) => {
-                    mw.set_house_batt_level(soc / 100f32);
-                },
+                Register::AuxVoltage(v) => mw.set_truck_batt_voltage(v),
+                Register::StateOfCharge(soc) => mw.set_house_batt_level(soc / 100f32),
+                Register::MainCurrent(c) => mw.set_house_batt_current(c),
                 _ => (),
             }
         },
@@ -162,9 +159,7 @@ fn dispatch_vedirect_message(mw: &MainWindow, reg: Register, dev: VeDirectDevice
             mw.set_solar_online(true);
 
             match reg {
-                Register::PanelPower(p) => {
-                    mw.set_solar_power(p);
-                }
+                Register::PanelPower(p) => mw.set_solar_power(p),
                 _ => (),
             }
         },
@@ -172,9 +167,7 @@ fn dispatch_vedirect_message(mw: &MainWindow, reg: Register, dev: VeDirectDevice
             mw.set_inverter_online(true);
 
             match reg {
-                Register::ACOutputApparentPower(p) => {
-                    mw.set_inverter_power(p);
-                },
+                Register::ACOutputApparentPower(p) => mw.set_inverter_power(p),
                 _ => (),
             }
         },
